@@ -43,7 +43,7 @@ stubModule("../db", { db: {
     assert.match(query.sql, /"transfers"\."slug" = \$1/);
     return { limit: async () => {
       if (databaseError) throw databaseError;
-      return row && query.params[0] === row.slug ? [{ ...row }] : [];
+      return row && query.params[0] === row.slug ? [{ ...row, observedAt: Date.now() }] : [];
     } };
   } }) }),
   update: () => ({ set: (changes: { revokedAt: Parameters<typeof dialect.sqlToQuery>[0] }) => {

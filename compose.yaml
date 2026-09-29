@@ -1,0 +1,16 @@
+services:
+  postgres:
+    image: postgres:17
+    container_name: sendora-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: sendora
+      POSTGRES_PASSWORD: sendora
+      POSTGRES_DB: sendora
+    ports:
+      - "5432:5432"
+    volumes:
+      - sendora_postgres_data:/var/lib/postgresql/data
+
+volumes:
+  sendora_postgres_data:

@@ -1,4 +1,4 @@
-import { randomUUID } from "node:crypto";
+import { randomBytes, randomUUID } from "node:crypto";
 
 import { PutObjectCommand } from "@aws-sdk/client-s3";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
@@ -6,12 +6,16 @@ import type { FastifyInstance } from "fastify";
 import { z } from "zod";
 
 import { env } from "../config/env";
+import { db } from "../db";
+import { transfers } from "../db/schema";
 import { r2 } from "../lib/r2";
 
 const presignBodySchema = z.object({
   filename: z.string().min(1).max(255),
   contentType: z.string().min(1).max(255),
   size: z.number().int().positive(),
+  expiresInHours: z.number().int().min(1).max(168),
+  maxDownloads: z.number().int().min(1).max(100),
 });
 
 export async function uploadRoutes(app: FastifyInstance) {
@@ -28,13 +32,15 @@ export async function uploadRoutes(app: FastifyInstance) {
       });
     }
 
-    const { contentType } = result.data;
+    const { filename, contentType, size, expiresInHours, maxDownloads } = result.data;
 
-    const key = `uploads/${randomUUID()}`;
+    const objectKey = `uploads/${randomUUID()}`;
+    const slug = randomBytes(16).toString("base64url");
+    const expiresAt = new Date(Date.now() + expiresInHours * 60 * 60 * 1000);
 
     const command = new PutObjectCommand({
       Bucket: env.R2_BUCKET_NAME,
-      Key: key,
+      Key: objectKey,
       ContentType: contentType,
     });
 
@@ -42,9 +48,19 @@ export async function uploadRoutes(app: FastifyInstance) {
       expiresIn: 300,
     });
 
+    await db.insert(transfers).values({
+      slug,
+      objectKey,
+      originalName: filename,
+      contentType,
+      size,
+      expiresAt,
+      maxDownloads,
+    });
+
     return {
       uploadUrl,
-      key,
+      slug,
     };
   });
 }

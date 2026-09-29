@@ -3,6 +3,7 @@ import cors from "@fastify/cors";
 import Fastify from "fastify";
 
 import { uploadRoutes } from "./routes/uploads";
+import { transferRoutes } from "./routes/transfers";
 
 const app = Fastify({
   logger: true,
@@ -21,6 +22,7 @@ const start = async () => {
     });
 
     await app.register(uploadRoutes);
+    await app.register(transferRoutes);
 
     await app.listen({
       port: 4000,

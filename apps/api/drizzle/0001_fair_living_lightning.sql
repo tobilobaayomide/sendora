@@ -1,0 +1,1 @@
+ALTER TABLE "transfers" ADD COLUMN "uploaded_at" timestamp with time zone;

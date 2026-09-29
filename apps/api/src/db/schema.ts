@@ -14,6 +14,8 @@ export const transfers = pgTable("transfers", {
 
   slug: text("slug").notNull().unique(),
 
+  ownerTokenHash: text("owner_token_hash").notNull(),
+
   objectKey: text("object_key").notNull().unique(),
 
   originalName: text("original_name").notNull(),

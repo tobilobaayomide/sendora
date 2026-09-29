@@ -8,10 +8,15 @@ import { env } from "../config/env";
 import { db } from "../db";
 import { transfers } from "../db/schema";
 import { attachmentDisposition } from "../lib/content-disposition";
+import { verifyOwnerToken } from "../lib/owner-token";
 import { r2 } from "../lib/r2";
 
 const transferParamsSchema = z.object({
   slug: z.string().min(1),
+});
+
+const revokeBodySchema = z.object({
+  ownerToken: z.string().regex(/^[A-Za-z0-9_-]{43}$/),
 });
 
 class DownloadUnavailableError extends Error {
@@ -21,6 +26,48 @@ class DownloadUnavailableError extends Error {
 }
 
 export async function transferRoutes(app: FastifyInstance) {
+  app.post("/transfers/:slug/revoke", async (request, reply) => {
+    const params = transferParamsSchema.safeParse(request.params);
+    if (!params.success) {
+      return reply.status(400).send({ error: "Invalid transfer slug" });
+    }
+
+    const body = revokeBodySchema.safeParse(request.body);
+    if (!body.success) {
+      return reply.status(403).send({ error: "Not authorized to revoke transfer" });
+    }
+
+    try {
+      const [transfer] = await db
+        .select({ id: transfers.id, ownerTokenHash: transfers.ownerTokenHash, revokedAt: transfers.revokedAt })
+        .from(transfers)
+        .where(eq(transfers.slug, params.data.slug))
+        .limit(1);
+
+      const authorized = verifyOwnerToken(body.data.ownerToken, transfer?.ownerTokenHash);
+      if (!authorized || !transfer) {
+        return reply.status(403).send({ error: "Not authorized to revoke transfer" });
+      }
+
+      if (transfer.revokedAt === null) {
+        const [updated] = await db
+          .update(transfers)
+          // Preserve the first revocation timestamp if requests arrive concurrently.
+          .set({ revokedAt: sql`coalesce(${transfers.revokedAt}, clock_timestamp())` })
+          .where(eq(transfers.id, transfer.id))
+          .returning({ id: transfers.id });
+
+        if (!updated) {
+          return reply.status(403).send({ error: "Not authorized to revoke transfer" });
+        }
+      }
+
+      return { status: "revoked", slug: params.data.slug };
+    } catch {
+      return reply.status(500).send({ error: "Unable to revoke transfer" });
+    }
+  });
+
   app.post("/transfers/:slug/download", async (request, reply) => {
     const result = transferParamsSchema.safeParse(request.params);
 

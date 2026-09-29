@@ -78,6 +78,7 @@ beforeEach(() => {
     originalName: "example.txt", contentType: "text/plain", size: 12,
     createdAt: new Date(), expiresAt: new Date(Date.now() + 3600000),
     uploadedAt: new Date(), revokedAt: null, downloadCount: 0, maxDownloads: 1,
+    exhaustedAt: null, deletedAt: null,
   };
   inserted = undefined; writes = 0; databaseError = undefined; logs.length = 0;
 });

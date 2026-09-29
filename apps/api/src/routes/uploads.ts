@@ -8,6 +8,7 @@ import { z } from "zod";
 import { env } from "../config/env";
 import { db } from "../db";
 import { transfers } from "../db/schema";
+import { createOwnerToken } from "../lib/owner-token";
 import { r2 } from "../lib/r2";
 
 const presignBodySchema = z.object({
@@ -36,6 +37,7 @@ export async function uploadRoutes(app: FastifyInstance) {
 
     const objectKey = `uploads/${randomUUID()}`;
     const slug = randomBytes(16).toString("base64url");
+    const { ownerToken, ownerTokenHash } = createOwnerToken();
     const expiresAt = new Date(Date.now() + expiresInHours * 60 * 60 * 1000);
 
     const command = new PutObjectCommand({
@@ -48,19 +50,27 @@ export async function uploadRoutes(app: FastifyInstance) {
       expiresIn: 300,
     });
 
-    await db.insert(transfers).values({
-      slug,
-      objectKey,
-      originalName: filename,
-      contentType,
-      size,
-      expiresAt,
-      maxDownloads,
-    });
+    try {
+      await db.insert(transfers).values({
+        slug,
+        ownerTokenHash,
+        objectKey,
+        originalName: filename,
+        contentType,
+        size,
+        expiresAt,
+        maxDownloads,
+      });
+    } catch {
+      // Drizzle errors may contain SQL parameters, including the owner token hash.
+      return reply.status(500).send({ error: "Unable to create transfer" });
+    }
 
+    reply.header("Cache-Control", "no-store");
     return {
       uploadUrl,
       slug,
+      ownerToken,
     };
   });
 }

@@ -1,6 +1,6 @@
 import { GetObjectCommand, HeadObjectCommand, S3ServiceException } from "@aws-sdk/client-s3";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
-import { and, eq, gt, isNotNull, isNull, lt, sql } from "drizzle-orm";
+import { and, eq, getTableColumns, gt, isNotNull, isNull, lt, sql } from "drizzle-orm";
 import type { FastifyInstance } from "fastify";
 import { z } from "zod";
 
@@ -10,6 +10,19 @@ import { transfers } from "../db/schema";
 import { attachmentDisposition } from "../lib/content-disposition";
 import { verifyOwnerToken } from "../lib/owner-token";
 import { r2 } from "../lib/r2";
+import { transferUnavailableReason, type TransferUnavailableReason } from "../lib/transfer-unavailable";
+
+// Use the database clock for both public reads and failed atomic admissions.
+const observedAt = sql<number>`extract(epoch from clock_timestamp()) * 1000`.mapWith(Number);
+const terminalFields = {
+  uploadedAt: transfers.uploadedAt,
+  expiresAt: transfers.expiresAt,
+  revokedAt: transfers.revokedAt,
+  exhaustedAt: transfers.exhaustedAt,
+  downloadCount: transfers.downloadCount,
+  maxDownloads: transfers.maxDownloads,
+  observedAt,
+};
 
 const transferParamsSchema = z.object({
   slug: z.string().min(1),
@@ -20,7 +33,11 @@ const revokeBodySchema = z.object({
 });
 
 class DownloadUnavailableError extends Error {
-  constructor(readonly statusCode: 404 | 409 | 410, message: string) {
+  constructor(
+    readonly statusCode: 404 | 409 | 410,
+    message: string,
+    readonly reason?: TransferUnavailableReason,
+  ) {
     super(message);
   }
 }
@@ -100,7 +117,7 @@ export async function transferRoutes(app: FastifyInstance) {
 
         if (!transfer) {
           const [current] = await tx
-            .select({ uploadedAt: transfers.uploadedAt })
+            .select(terminalFields)
             .from(transfers)
             .where(eq(transfers.slug, result.data.slug))
             .limit(1);
@@ -111,7 +128,8 @@ export async function transferRoutes(app: FastifyInstance) {
           if (current.uploadedAt === null) {
             throw new DownloadUnavailableError(409, "Transfer is still pending");
           }
-          throw new DownloadUnavailableError(410, "Transfer is no longer available");
+          throw new DownloadUnavailableError(410, "transfer_unavailable",
+            transferUnavailableReason(current, current.observedAt));
         }
 
         // Pin signing time so SDK work cannot extend the URL beyond transfer expiry.
@@ -122,7 +140,8 @@ export async function transferRoutes(app: FastifyInstance) {
         );
 
         if (expiresIn < 1) {
-          throw new DownloadUnavailableError(410, "Transfer is no longer available");
+          throw new DownloadUnavailableError(410, "transfer_unavailable",
+            Date.now() >= transfer.expiresAt.getTime() ? "expired" : undefined);
         }
 
         const downloadUrl = await getSignedUrl(r2, new GetObjectCommand({
@@ -134,14 +153,18 @@ export async function transferRoutes(app: FastifyInstance) {
         // SigV4 timestamps have whole-second precision. Roll back if signing took too long.
         const urlExpiresAt = Math.floor(signingDate.getTime() / 1000) * 1000 + expiresIn * 1000;
         if (Date.now() >= urlExpiresAt) {
-          throw new DownloadUnavailableError(410, "Transfer is no longer available");
+          throw new DownloadUnavailableError(410, "transfer_unavailable",
+            Date.now() >= transfer.expiresAt.getTime() ? "expired" : undefined);
         }
 
         return { downloadUrl, expiresIn };
       });
     } catch (error) {
       if (error instanceof DownloadUnavailableError) {
-        return reply.status(error.statusCode).send({ error: error.message });
+        return reply.status(error.statusCode).send({
+          error: error.message,
+          ...(error.reason ? { reason: error.reason } : {}),
+        });
       }
       return reply.status(500).send({ error: "Unable to prepare download" });
     }
@@ -155,7 +178,7 @@ export async function transferRoutes(app: FastifyInstance) {
     }
 
     const [transfer] = await db
-      .select()
+      .select({ ...getTableColumns(transfers), observedAt })
       .from(transfers)
       .where(eq(transfers.slug, result.data.slug))
       .limit(1);
@@ -168,12 +191,9 @@ export async function transferRoutes(app: FastifyInstance) {
       return reply.status(409).send({ error: "Transfer is still pending" });
     }
 
-    if (
-      transfer.expiresAt.getTime() <= Date.now() ||
-      transfer.revokedAt !== null ||
-      transfer.downloadCount >= transfer.maxDownloads
-    ) {
-      return reply.status(410).send({ error: "Transfer is no longer available" });
+    const reason = transferUnavailableReason(transfer, transfer.observedAt);
+    if (reason) {
+      return reply.status(410).send({ error: "transfer_unavailable", reason });
     }
 
     return {

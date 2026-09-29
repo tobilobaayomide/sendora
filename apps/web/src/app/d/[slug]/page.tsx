@@ -1,7 +1,8 @@
 "use client";
 
 import { useParams } from "next/navigation";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, useSyncExternalStore } from "react";
+import { getOwnerToken, removeOwnerToken, subscribeToOwnership } from "@/lib/transfer-ownership";
 
 type Transfer = {
   filename: string;
@@ -13,6 +14,7 @@ type Transfer = {
 
 type PageState =
   | { status: "loading" }
+  | { status: "revoked" }
   | { status: "error"; message: string }
   | { status: "ready"; transfer: Transfer };
 
@@ -43,6 +45,19 @@ function RecipientPage({ slug }: { slug: string }) {
   const [isDownloading, setIsDownloading] = useState(false);
   const [downloadError, setDownloadError] = useState("");
   const admissionInFlight = useRef(false);
+  const revokeInFlight = useRef(false);
+  const [isRevoking, setIsRevoking] = useState(false);
+  const [revokeError, setRevokeError] = useState("");
+  const [copyMessage, setCopyMessage] = useState("");
+  const hasOwnerToken = useSyncExternalStore(
+    subscribeToOwnership,
+    () => getOwnerToken(slug) !== null,
+    () => false,
+  );
+  // The server snapshot has no owner controls; origin is read only in the browser.
+  const shareUrl = hasOwnerToken
+    ? `${window.location.origin}/d/${encodeURIComponent(slug)}`
+    : "";
   const endpoint = `http://localhost:4000/transfers/${encodeURIComponent(slug)}`;
 
   useEffect(() => {
@@ -73,7 +88,7 @@ function RecipientPage({ slug }: { slug: string }) {
   }, [endpoint]);
 
   async function handleDownload() {
-    if (admissionInFlight.current || state.status !== "ready" ||
+    if (getOwnerToken(slug) !== null || admissionInFlight.current || revokeInFlight.current || state.status !== "ready" ||
         state.transfer.downloadCount >= state.transfer.maxDownloads) return;
 
     admissionInFlight.current = true;
@@ -112,11 +127,60 @@ function RecipientPage({ slug }: { slug: string }) {
     }
   }
 
+  async function handleCopyLink() {
+    try {
+      await navigator.clipboard.writeText(shareUrl);
+      setCopyMessage("Link copied.");
+    } catch {
+      setCopyMessage("Unable to copy the link. You can copy the public link above manually.");
+    }
+  }
+
+  async function handleRevoke() {
+    if (revokeInFlight.current || admissionInFlight.current || state.status === "revoked") return;
+
+    const ownerToken = getOwnerToken(slug);
+    if (!ownerToken) {
+      setRevokeError("Owner authorization is unavailable or invalid in this browser.");
+      return;
+    }
+
+    revokeInFlight.current = true;
+    setIsRevoking(true);
+    setRevokeError("");
+
+    try {
+      const response = await fetch(`${endpoint}/revoke`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ownerToken }),
+      });
+
+      if (response.status === 403) {
+        setRevokeError("Owner authorization is unavailable or invalid in this browser.");
+        return;
+      }
+      if (!response.ok) throw new Error("Revocation failed");
+
+      setState({ status: "revoked" });
+      setDownloadError("");
+      if (!removeOwnerToken(slug)) {
+        setRevokeError("Transfer revoked, but this browser could not clear its saved ownership.");
+      }
+    } catch {
+      setRevokeError("Unable to revoke the transfer. Please try again later.");
+    } finally {
+      revokeInFlight.current = false;
+      setIsRevoking(false);
+    }
+  }
+
   return (
     <main className="space-y-4 p-6">
-      <h1>Download transfer</h1>
+      <h1>{hasOwnerToken ? (state.status === "ready" ? "Transfer ready" : "Manage transfer") : "Download transfer"}</h1>
       {state.status === "loading" && <p role="status">Loading transfer…</p>}
       {state.status === "error" && <p role="alert">{state.message}</p>}
+      {state.status === "revoked" && <p role="status">This transfer is no longer available.</p>}
       {state.status === "ready" && (
         <>
           <dl>
@@ -126,20 +190,51 @@ function RecipientPage({ slug }: { slug: string }) {
             <dd>{formatSize(state.transfer.size)}</dd>
             <dt>Expires</dt>
             <dd><time dateTime={state.transfer.expiresAt}>{new Date(state.transfer.expiresAt).toLocaleString()}</time></dd>
-            <dt>Remaining downloads</dt>
-            <dd aria-live="polite">{Math.max(0, state.transfer.maxDownloads - state.transfer.downloadCount)}</dd>
+            <dt>{hasOwnerToken ? "Downloads used / maximum downloads" : "Remaining downloads"}</dt>
+            <dd aria-live="polite">
+              {hasOwnerToken
+                ? `${state.transfer.downloadCount} / ${state.transfer.maxDownloads}`
+                : Math.max(0, state.transfer.maxDownloads - state.transfer.downloadCount)}
+            </dd>
           </dl>
-          <button
-            type="button"
-            className="border px-3 py-1 disabled:opacity-50"
-            disabled={isDownloading || state.transfer.downloadCount >= state.transfer.maxDownloads}
-            onClick={handleDownload}
-          >
-            {isDownloading ? "Preparing download…" : "Download"}
-          </button>
-          {downloadError && <p role="alert">{downloadError}</p>}
+          {hasOwnerToken ? (
+            <>
+              <p>Public share link: <a href={shareUrl}>{shareUrl}</a></p>
+              <button
+                type="button"
+                className="border px-3 py-1"
+                onClick={handleCopyLink}
+              >
+                Copy link
+              </button>
+              {copyMessage && <p role="status">{copyMessage}</p>}
+            </>
+          ) : (
+            <>
+              <button
+                type="button"
+                className="border px-3 py-1 disabled:opacity-50"
+                disabled={isDownloading || isRevoking || state.transfer.downloadCount >= state.transfer.maxDownloads}
+                onClick={handleDownload}
+              >
+                {isDownloading ? "Preparing download…" : "Download"}
+              </button>
+              {downloadError && <p role="alert">{downloadError}</p>}
+            </>
+          )}
         </>
       )}
+      {hasOwnerToken && state.status !== "loading" && state.status !== "revoked" && (
+        <button
+          type="button"
+          className="border px-3 py-1 disabled:opacity-50"
+          disabled={isRevoking || isDownloading}
+          onClick={handleRevoke}
+        >
+          {isRevoking ? "Revoking…" : "Revoke transfer"}
+        </button>
+      )}
+      {revokeError && <p role="alert">{revokeError}</p>}
     </main>
   );
 }

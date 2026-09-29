@@ -79,7 +79,12 @@ export async function transferRoutes(app: FastifyInstance) {
       return await db.transaction(async (tx) => {
         const [transfer] = await tx
           .update(transfers)
-          .set({ downloadCount: sql`${transfers.downloadCount} + 1` })
+          .set({
+            downloadCount: sql`${transfers.downloadCount} + 1`,
+            exhaustedAt: sql`coalesce(${transfers.exhaustedAt}, case
+              when ${transfers.downloadCount} + 1 >= ${transfers.maxDownloads}
+              then clock_timestamp() end)`,
+          })
           .where(and(
             eq(transfers.slug, result.data.slug),
             isNotNull(transfers.uploadedAt),

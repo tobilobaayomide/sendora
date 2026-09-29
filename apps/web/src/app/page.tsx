@@ -6,6 +6,7 @@ import { FileSummary } from "@/components/file-summary";
 import { Icon } from "@/components/icon";
 import { prepareUpload, selectionError } from "@/lib/prepare-upload";
 import { formatFileSize } from "@/lib/format-file-size";
+import { uploadFile, formatUploadEta, type UploadProgress } from "@/lib/upload-file";
 import { storeOwnerToken } from "@/lib/transfer-ownership";
 
 type UploadPhase = "idle" | "bundling" | "preparing" | "uploading" | "finalizing" | "ready";
@@ -27,6 +28,8 @@ export default function Home() {
   const [downloadLimit, setDownloadLimit] = useState("1");
   const [error, setError] = useState<UploadError | null>(null);
   const [phase, setPhase] = useState<UploadPhase>("idle");
+  const [progress, setProgress] = useState<UploadProgress | null>(null);
+  const [uploadName, setUploadName] = useState("");
   const [isDragging, setIsDragging] = useState(false);
   const fileInput = useRef<HTMLInputElement>(null);
   const expiryInput = useRef<HTMLInputElement>(null);
@@ -87,8 +90,10 @@ export default function Home() {
     }
     uploadInFlight.current = true;
     setError(null);
+    setProgress(null);
     setPhase(files.length > 1 ? "bundling" : "preparing");
     let packaged = files.length === 1;
+    let uploadRequested = false;
     let uploadedToR2 = false;
     let completed = false;
     try {
@@ -121,13 +126,11 @@ export default function Home() {
         setError({ field: "upload", message: "Your browser couldn’t save ownership of this transfer. Allow site storage and try again." });
         return;
       }
+      uploadRequested = true;
+      setUploadName(file.name);
+      setProgress({ loadedBytes: 0, totalBytes: file.size, percentage: 0, bytesPerSecond: null, remainingSeconds: null });
       setPhase("uploading");
-      const uploadResponse = await fetch(data.uploadUrl, {
-        method: "PUT",
-        headers: { "Content-Type": contentType },
-        body: file,
-      });
-      if (!uploadResponse.ok) throw new Error("File upload failed.");
+      await uploadFile(data.uploadUrl, file, setProgress);
       uploadedToR2 = true;
       setPhase("finalizing");
       const completionResponse = await fetch(
@@ -145,12 +148,15 @@ export default function Home() {
           ? "We couldn’t bundle these files. Please try again or choose fewer files."
           : uploadedToR2
           ? "Your file was uploaded, but we couldn’t finalize the transfer. Please try again."
-          : "We couldn’t upload your file. Check your connection and try again.",
+          : uploadRequested
+          ? "We couldn’t upload your file. Check your connection and try again."
+          : "We couldn’t prepare your transfer. Check your connection and try again.",
       });
     } finally {
       if (!completed) {
         uploadInFlight.current = false;
         setPhase("idle");
+        setProgress(null);
       }
     }
   }
@@ -348,6 +354,26 @@ export default function Home() {
           </div>
         </fieldset>
         <p className="mt-4 text-[12px] text-muted">The link closes when either limit is reached.</p>
+        {phase === "uploading" && progress && (
+          <div className="mt-5 rounded-lg border border-border bg-surface-subtle p-4">
+            <p className="text-[13px] font-semibold wrap-anywhere">{uploadName}</p>
+            <div role="progressbar" aria-label="File upload" aria-valuemin={0} aria-valuemax={100}
+              aria-valuenow={Math.floor(progress.percentage)}
+              aria-valuetext={`${Math.floor(progress.percentage)}%, ${formatFileSize(progress.loadedBytes)} of ${formatFileSize(progress.totalBytes)}`}
+              className="mt-3 h-2 overflow-hidden rounded-full bg-border">
+              <div className="h-full bg-brand" style={{ width: `${progress.percentage}%` }} />
+            </div>
+            <div className="mt-2 flex flex-wrap justify-between gap-2 text-[12px] tabular-nums">
+              <span>{Math.floor(progress.percentage)}%</span>
+              <span className="text-muted">{formatFileSize(progress.loadedBytes)} of {formatFileSize(progress.totalBytes)}</span>
+            </div>
+            {progress.bytesPerSecond !== null && <p className="mt-2 text-[12px] text-muted tabular-nums">
+              {formatFileSize(progress.bytesPerSecond)}/s
+              {formatUploadEta(progress.remainingSeconds) && ` · ${formatUploadEta(progress.remainingSeconds)}`}
+            </p>}
+            <p className="mt-2 text-[12px] text-muted">{progress.percentage === 100 ? "Upload sent. Waiting for confirmation…" : "Uploading securely…"}</p>
+          </div>
+        )}
         {error && (
           <div id="upload-error" className="
             flex items-start gap-2.5 rounded-lg border border-transparent bg-danger-soft px-4 py-[13px]

@@ -5,6 +5,7 @@ import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 import type { FastifyInstance } from "fastify";
 import { z } from "zod";
 
+import { env } from "../config/env";
 import { r2 } from "../lib/r2";
 
 const presignBodySchema = z.object({
@@ -29,16 +30,10 @@ export async function uploadRoutes(app: FastifyInstance) {
 
     const { contentType } = result.data;
 
-    const bucket = process.env.R2_BUCKET_NAME;
-
-    if (!bucket) {
-      throw new Error("Missing R2_BUCKET_NAME");
-    }
-
     const key = `uploads/${randomUUID()}`;
 
     const command = new PutObjectCommand({
-      Bucket: bucket,
+      Bucket: env.R2_BUCKET_NAME,
       Key: key,
       ContentType: contentType,
     });

@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { storeOwnerToken } from "@/lib/transfer-ownership";
 
 export default function Home() {
   const [file, setFile] = useState<File | null>(null);
@@ -57,9 +58,17 @@ export default function Home() {
         !("slug" in data) ||
         typeof data.slug !== "string" ||
         !("uploadUrl" in data) ||
-        typeof data.uploadUrl !== "string"
+        typeof data.uploadUrl !== "string" ||
+        !("ownerToken" in data) ||
+        typeof data.ownerToken !== "string" ||
+        !/^[A-Za-z0-9_-]{43}$/.test(data.ownerToken)
       ) {
         throw new Error("Invalid presign response.");
+      }
+
+      if (!storeOwnerToken(data.slug, data.ownerToken)) {
+        setMessage("This browser could not save transfer ownership. Upload stopped.");
+        return;
       }
 
       console.log("Transfer slug:", data.slug);

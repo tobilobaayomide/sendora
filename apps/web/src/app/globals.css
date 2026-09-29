@@ -1,26 +1,81 @@
 @import "tailwindcss";
 
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
+/* Shared Sendora palette; component layout and states live in JSX utilities. */
+@theme {
+  --color-background: #f8fafc;
+  --color-surface: #ffffff;
+  --color-surface-subtle: #f4f7fa;
+  --color-foreground: #0f172a;
+  --color-muted: #607086;
+  --color-muted-strong: #475569;
+  --color-border: #e2e8f0;
+  --color-border-strong: #cbd5e1;
+  --color-brand: #0891b2;
+  --color-brand-hover: #0e7490;
+  --color-brand-soft: #ecfeff;
+  --color-action: #0e7490;
+  --color-action-hover: #155e75;
+  --color-on-brand: #ffffff;
+  --color-success: #15803d;
+  --color-success-soft: #f0fdf4;
+  --color-danger: #b91c1c;
+  --color-danger-soft: #fef2f2;
+  --shadow-panel: 0 8px 32px -16px rgb(15 23 42 / 12%);
 }
 
 @theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  --font-sans: var(--font-dm-sans), Arial, sans-serif;
+  --font-heading: var(--font-sora), Arial, sans-serif;
 }
+
+:root { color-scheme: light; }
 
 @media (prefers-color-scheme: dark) {
   :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+    color-scheme: dark;
+    --color-background: #0b1220;
+    --color-surface: #111c2e;
+    --color-surface-subtle: #162337;
+    --color-foreground: #e7edf6;
+    --color-muted: #9cacc1;
+    --color-muted-strong: #c0ccdc;
+    --color-border: #29374a;
+    --color-border-strong: #435269;
+    --color-brand: #22d3ee;
+    --color-brand-hover: #67e8f9;
+    --color-brand-soft: #122e3c;
+    --color-action: #22d3ee;
+    --color-action-hover: #67e8f9;
+    --color-on-brand: #08242f;
+    --color-success: #86efac;
+    --color-success-soft: #122e26;
+    --color-danger: #fca5a5;
+    --color-danger-soft: #35212b;
+    --shadow-panel: 0 8px 32px -16px rgb(0 0 0 / 25%);
   }
 }
 
-body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+/* Keep the approved inclusive breakpoints, ordered from wide to narrow. */
+@custom-variant compact (@media (max-width: 600px));
+@custom-variant phone (@media (max-width: 480px));
+@custom-variant narrow (@media (max-width: 359px));
+
+@layer base {
+  body {
+    min-height: 100svh;
+    display: flex;
+    flex-direction: column;
+    background: var(--color-background);
+    color: var(--color-foreground);
+    font-family: var(--font-sans);
+    font-size: 15px;
+    line-height: 1.5;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  button, a, input { -webkit-tap-highlight-color: transparent; }
+  button { cursor: pointer; }
+  button:disabled { cursor: not-allowed; }
+  :focus-visible { outline: 3px solid var(--color-brand); outline-offset: 4px; }
+  ::selection { background: var(--color-brand); color: var(--color-on-brand); }
 }

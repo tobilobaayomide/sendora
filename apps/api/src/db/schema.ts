@@ -37,6 +37,10 @@ export const transfers = pgTable("transfers", {
   downloadCount: integer("download_count").default(0).notNull(),
 
   revokedAt: timestamp("revoked_at", { withTimezone: true }),
+
+  exhaustedAt: timestamp("exhausted_at", { withTimezone: true }),
+
+  deletedAt: timestamp("deleted_at", { withTimezone: true }),
 }, (table) => [
   check("transfers_size_positive", sql`${table.size} > 0`),
   check("transfers_max_downloads_positive", sql`${table.maxDownloads} > 0`),

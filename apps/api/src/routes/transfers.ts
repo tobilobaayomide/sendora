@@ -145,13 +145,16 @@ export async function transferRoutes(app: FastifyInstance) {
       reply.header("Cache-Control", "no-store");
       reply.header("Referrer-Policy", "no-referrer");
       return download;
-    } catch (error) {
+      } catch (error) {
       if (error instanceof DownloadUnavailableError) {
         return reply.status(error.statusCode).send({
           error: error.message,
           ...(error.reason ? { reason: error.reason } : {}),
         });
       }
+
+      request.log.error({ err: error }, "Failed to prepare download");
+
       return reply.status(500).send({ error: "Unable to prepare download" });
     }
   });

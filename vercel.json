@@ -8,19 +8,7 @@
     "api": {
       "root": "apps/api",
       "framework": "fastify",
-      "entrypoint": "src/server.ts",
-      "routes": [
-        {
-          "src": "/api/(.*)",
-          "transforms": [
-            {
-              "type": "request.path",
-              "op": "set",
-              "args": "/$1"
-            }
-          ]
-        }
-      ]
+      "entrypoint": "src/server.ts"
     }
   },
   "rewrites": [

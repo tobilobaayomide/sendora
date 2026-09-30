@@ -33,8 +33,7 @@ function shutdown() {
   });
 }
 
-app.get("/health", async () => {
-  return {
+app.get("/api/health", async () => {  return {
     status: "ok",
   };
 });
@@ -45,8 +44,8 @@ const start = async () => {
       origin: "http://localhost:3000",
     });
 
-    await app.register(uploadRoutes);
-    await app.register(transferRoutes);
+   await app.register(uploadRoutes, { prefix: "/api" });
+   await app.register(transferRoutes, { prefix: "/api" });
 
     await app.listen({
       port: 4000,

@@ -1,17 +1,17 @@
 import assert from "node:assert/strict";
 import Module from "node:module";
 import { after, beforeEach, test } from "node:test";
-import { GetObjectCommand } from "@aws-sdk/client-s3";
 import { SQL } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/postgres-js";
 import Fastify from "fastify";
 
-import { transfers } from "../db/schema";
+import { downloadSessions, transfers } from "../db/schema";
+import { hashDownloadToken } from "../lib/download-token";
 
 type Row = typeof transfers.$inferSelect;
 let row: Row;
-let signingFails: boolean;
-let signingCalls: number;
+let sessionInsertFails: boolean;
+let sessionRows: Array<Record<string, unknown>>;
 let exists: boolean;
 let observedTime: number;
 let pending = Promise.resolve();
@@ -25,15 +25,8 @@ function stubModule(path: string, exports: unknown) {
   require.cache[id] = module;
 }
 
-stubModule("../config/env", { env: { R2_BUCKET_NAME: "test-bucket" } });
+stubModule("../config/env", { env: { R2_BUCKET_NAME: "test-bucket", DOWNLOAD_WORKER_URL: "https://worker.example" } });
 stubModule("../lib/r2", { r2: {} });
-stubModule("@aws-sdk/s3-request-presigner", { getSignedUrl: async (_client: unknown, command: GetObjectCommand) => {
-  signingCalls++;
-  assert.ok(command instanceof GetObjectCommand);
-  await new Promise(resolve => setImmediate(resolve));
-  if (signingFails) throw new Error("Signing failed");
-  return "https://example.invalid/download";
-} });
 stubModule("../db", { db: {
   select: () => ({ from: () => ({ where: () => ({ limit: async () =>
     exists ? [{ ...row, observedAt: observedTime }] : [] }) }) }),
@@ -44,6 +37,7 @@ stubModule("../db", { db: {
     pending = new Promise(resolve => { release = resolve; });
     await previous;
     const working = { ...row };
+    let insertedSession: Record<string, unknown> | undefined;
     const tx = {
       update: () => ({ set: (changes: { downloadCount: SQL; exhaustedAt: SQL }) => ({ where: (condition: SQL) => ({ returning: async () => {
         const query = queryDb.update(transfers).set(changes).where(condition).toSQL();
@@ -63,10 +57,16 @@ stubModule("../db", { db: {
         return [{ ...working }];
       } }) }) }),
       select: () => ({ from: () => ({ where: () => ({ limit: async () => exists ? [{ ...working, observedAt: observedTime }] : [] }) }) }),
+      insert: (table: unknown) => ({ values: async (values: Record<string, unknown>) => {
+        assert.equal(table, downloadSessions);
+        insertedSession = values;
+        if (sessionInsertFails) throw new Error("Session insert failed");
+      } }),
     };
     try {
       const result = await callback(tx);
       row = working;
+      if (insertedSession) sessionRows.push(insertedSession);
       return result;
     } finally { release(); }
   },
@@ -79,17 +79,20 @@ after(() => app.close());
 beforeEach(() => {
   observedTime = Date.now();
   exists = true;
-  signingCalls = 0;
+  sessionInsertFails = false;
+  sessionRows = [];
   row = { id: "internal-id", ownerTokenHash: "internal-hash", contentType: "text/plain", size: 12,
     createdAt: new Date(), deletedAt: null, slug: "test-slug", objectKey: "uploads/test", originalName: "test.txt", uploadedAt: new Date(),
     revokedAt: null, expiresAt: new Date(Date.now() + 3600000), downloadCount: 0, maxDownloads: 1, exhaustedAt: null };
-  signingFails = false;
 });
 const download = () => app.inject({ method: "POST", url: "/transfers/test-slug/download" });
 
 test("final download atomically sets exhaustedAt with the count", async () => {
   const before = Date.now();
-  assert.equal((await download()).statusCode, 200);
+  const response = await download();
+  assert.equal(response.statusCode, 200);
+  assert.equal(response.headers["cache-control"], "no-store");
+  assert.match(response.json().downloadUrl, /^https:\/\/worker\.example\/download\/[A-Za-z0-9_-]{43}$/);
   assert.equal(row.downloadCount, 1);
   assert.ok(row.exhaustedAt instanceof Date);
   assert.ok(row.exhaustedAt.getTime() >= before);
@@ -109,11 +112,25 @@ test("an existing exhaustion timestamp is preserved", async () => {
   assert.equal(row.exhaustedAt, original);
 });
 
-test("signing failure rolls back both the increment and exhaustion timestamp", async () => {
-  signingFails = true;
+test("session insert failure rolls back both the increment and exhaustion timestamp", async () => {
+  sessionInsertFails = true;
   assert.equal((await download()).statusCode, 500);
   assert.equal(row.downloadCount, 0);
   assert.equal(row.exhaustedAt, null);
+  assert.equal(sessionRows.length, 0);
+});
+
+test("response contains no R2 location or object key and PostgreSQL stores only the bootstrap hash", async () => {
+  const response = await download();
+  const { downloadUrl } = response.json();
+  const token = new URL(downloadUrl).pathname.split("/").at(-1)!;
+  assert.equal(sessionRows.length, 1);
+  assert.equal(sessionRows[0].bootstrapTokenHash, hashDownloadToken(token));
+  assert.equal(sessionRows[0].sessionTokenHash, undefined);
+  assert.ok(!JSON.stringify(sessionRows).includes(token));
+  assert.ok(!response.body.includes("uploads/test"));
+  assert.ok(!response.body.includes("r2"));
+  assert.deepEqual(Object.keys(response.json()), ["downloadUrl"]);
 });
 
 test("simultaneous final-slot requests admit one download and record one exhaustion", async () => {
@@ -172,7 +189,6 @@ for (const [endpoint, request] of [["metadata", metadata], ["download", download
       assert.equal(response.statusCode, 410);
       assert.deepEqual(response.json(), { error: "transfer_unavailable", reason: scenario.reason });
       assert.deepEqual(row, before);
-      assert.equal(signingCalls, 0);
     });
   }
 
@@ -186,7 +202,6 @@ for (const [endpoint, request] of [["metadata", metadata], ["download", download
     const response = await request();
     assert.equal(response.statusCode, 409);
     assert.equal(response.json().reason, undefined);
-    assert.equal(signingCalls, 0);
   });
 }
 
@@ -198,25 +213,4 @@ test("available metadata retains only its public fields and consumes no download
     expiresAt: row.expiresAt.toISOString(), maxDownloads: row.maxDownloads, downloadCount: 0,
   });
   assert.equal(row.downloadCount, 0);
-  assert.equal(signingCalls, 0);
-});
-
-test("expiry during signing returns expired and rolls back admission", async (t) => {
-  row.expiresAt = new Date(Date.now() + 2000);
-  t.mock.method(Date, "now", () => row.expiresAt.getTime() + 1);
-  const response = await download();
-  assert.equal(response.statusCode, 410);
-  assert.deepEqual(response.json(), { error: "transfer_unavailable", reason: "expired" });
-  assert.equal(row.downloadCount, 0);
-  assert.equal(row.exhaustedAt, null);
-});
-
-test("an elapsed signed URL lifetime must not falsely imply transfer expiry", async (t) => {
-  const later = Date.now() + 301000;
-  t.mock.method(Date, "now", () => later);
-  const response = await download();
-  assert.equal(response.statusCode, 410);
-  assert.deepEqual(response.json(), { error: "transfer_unavailable" });
-  assert.equal(row.downloadCount, 0);
-  assert.equal(row.exhaustedAt, null);
 });

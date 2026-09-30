@@ -136,7 +136,7 @@ export async function transferRoutes(app: FastifyInstance) {
         await tx.insert(downloadSessions).values({
           transferId: transfer.id,
           bootstrapTokenHash: bootstrap.tokenHash,
-          expiresAt: sql`least(${transfer.expiresAt}, clock_timestamp() + ${DOWNLOAD_SESSION_LIFETIME_MS} * interval '1 millisecond')`,
+          expiresAt: sql`least(${sql`${transfer.expiresAt.toISOString()}::timestamptz`}, clock_timestamp() + ${DOWNLOAD_SESSION_LIFETIME_MS} * interval '1 millisecond')`,
         });
 
         const workerBaseUrl = env.DOWNLOAD_WORKER_URL.replace(/\/+$/, "");

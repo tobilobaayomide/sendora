@@ -12,6 +12,8 @@ type Row = typeof transfers.$inferSelect;
 let row: Row;
 let sessionInsertFails: boolean;
 let sessionRows: Array<Record<string, unknown>>;
+let sessionInsertSql: string;
+let sessionInsertParams: unknown[];
 let exists: boolean;
 let observedTime: number;
 let pending = Promise.resolve();
@@ -59,6 +61,9 @@ stubModule("../db", { db: {
       select: () => ({ from: () => ({ where: () => ({ limit: async () => exists ? [{ ...working, observedAt: observedTime }] : [] }) }) }),
       insert: (table: unknown) => ({ values: async (values: Record<string, unknown>) => {
         assert.equal(table, downloadSessions);
+        const query = queryDb.insert(downloadSessions).values(values as never).toSQL();
+        sessionInsertSql = query.sql.replace(/\s+/g, " ");
+        sessionInsertParams = query.params;
         insertedSession = values;
         if (sessionInsertFails) throw new Error("Session insert failed");
       } }),
@@ -81,6 +86,8 @@ beforeEach(() => {
   exists = true;
   sessionInsertFails = false;
   sessionRows = [];
+  sessionInsertSql = "";
+  sessionInsertParams = [];
   row = { id: "internal-id", ownerTokenHash: "internal-hash", contentType: "text/plain", size: 12,
     createdAt: new Date(), deletedAt: null, slug: "test-slug", objectKey: "uploads/test", originalName: "test.txt", uploadedAt: new Date(),
     revokedAt: null, expiresAt: new Date(Date.now() + 3600000), downloadCount: 0, maxDownloads: 1, exhaustedAt: null };
@@ -131,6 +138,15 @@ test("response contains no R2 location or object key and PostgreSQL stores only 
   assert.ok(!response.body.includes("uploads/test"));
   assert.ok(!response.body.includes("r2"));
   assert.deepEqual(Object.keys(response.json()), ["downloadUrl"]);
+});
+
+test("session expiry serializes the Date-valued transfer expiry as a timestamptz parameter", async () => {
+  assert.ok(row.expiresAt instanceof Date);
+  const response = await download();
+  assert.equal(response.statusCode, 200);
+  assert.match(sessionInsertSql, /least\(\$3::timestamptz, clock_timestamp\(\) \+ \$4 \* interval '1 millisecond'\)/);
+  assert.equal(sessionInsertParams[2], row.expiresAt.toISOString());
+  assert.equal(sessionInsertParams[3], 15 * 60 * 1000);
 });
 
 test("simultaneous final-slot requests admit one download and record one exhaustion", async () => {

@@ -6,6 +6,8 @@ const envSchema = z.object({
   R2_SECRET_ACCESS_KEY: z.string().min(1),
   R2_BUCKET_NAME: z.string().min(1),
   DATABASE_URL: z.url({ protocol: /^postgres(?:ql)?$/ }),
+  DOWNLOAD_WORKER_URL: z.url(),
+  DOWNLOAD_WORKER_SECRET: z.string().min(32),
 });
 
 const result = envSchema.safeParse(process.env);

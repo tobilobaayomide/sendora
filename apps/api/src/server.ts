@@ -6,6 +6,7 @@ import { db } from "./db";
 import { startCleanupScheduler } from "./lib/cleanup-scheduler";
 import { r2 } from "./lib/r2";
 import { uploadRoutes } from "./routes/uploads";
+import { downloadSessionRoutes } from "./routes/download-sessions";
 import { transferRoutes } from "./routes/transfers";
 
 const app = Fastify({
@@ -46,6 +47,7 @@ const start = async () => {
 
    await app.register(uploadRoutes, { prefix: "/api" });
    await app.register(transferRoutes, { prefix: "/api" });
+   await app.register(downloadSessionRoutes, { prefix: "/api" });
 
     await app.listen({
       port: 4000,

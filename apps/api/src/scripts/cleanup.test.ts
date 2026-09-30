@@ -19,6 +19,7 @@ let deletedKeys: string[];
 let r2Failures: Set<string>;
 let dbFailures: Set<string>;
 let events: string[];
+let expiredSessionIds: string[];
 
 function stubModule(path: string, exports: unknown) {
   const id = require.resolve(path);
@@ -69,6 +70,10 @@ stubModule("../db", { db: {
     if (dbFailures.has(row.id)) throw new Error("Database unavailable");
     row.deletedAt ??= new Date(now);
   } }) }),
+  delete: () => ({ where: (condition: SQL) => ({ returning: async () => {
+    assert.equal(dialect.sqlToQuery(condition).sql, '"download_sessions"."expires_at" <= clock_timestamp()');
+    return expiredSessionIds.map(id => ({ id }));
+  } }) }),
 } });
 
 const { cleanupTransfers } = require("./cleanup") as typeof import("./cleanup");
@@ -79,13 +84,13 @@ function transfer(overrides: Partial<Row> = {}): Row {
 }
 
 beforeEach(() => {
-  rows = []; deletedKeys = []; events = []; r2Failures = new Set(); dbFailures = new Set();
+  rows = []; deletedKeys = []; events = []; expiredSessionIds = []; r2Failures = new Set(); dbFailures = new Set();
 });
 
 for (const field of ["expiresAt", "revokedAt", "exhaustedAt"] as const) {
   test(`cleans an eligible transfer terminal through ${field}`, async () => {
     rows = [transfer({ [field]: ago(2 * hour) })];
-    assert.deepEqual(await cleanupTransfers(), { selected: 1, deleted: 1, failed: 0 });
+    assert.deepEqual(await cleanupTransfers(), { selected: 1, deleted: 1, failed: 0, sessionsDeleted: 0 });
     assert.ok(rows[0].deletedAt instanceof Date);
     assert.deepEqual(events, ["delete:uploads/object-1", "mark:uploads/object-1"]);
   });
@@ -104,39 +109,46 @@ test("does not clean active or grace-period transfers, but includes the exact on
     transfer({ id: "recent-exhaustion", exhaustedAt: ago(hour - 1) }),
     transfer({ id: "boundary", objectKey: "uploads/boundary", revokedAt: ago(hour) }),
   ];
-  assert.deepEqual(await cleanupTransfers(), { selected: 1, deleted: 1, failed: 0 });
+  assert.deepEqual(await cleanupTransfers(), { selected: 1, deleted: 1, failed: 0, sessionsDeleted: 0 });
   assert.deepEqual(deletedKeys, ["uploads/boundary"]);
 });
 
 test("ignores already deleted transfers", async () => {
   rows = [transfer({ expiresAt: ago(2 * hour), deletedAt: ago(hour) })];
-  assert.deepEqual(await cleanupTransfers(), { selected: 0, deleted: 0, failed: 0 });
+  assert.deepEqual(await cleanupTransfers(), { selected: 0, deleted: 0, failed: 0, sessionsDeleted: 0 });
   assert.deepEqual(deletedKeys, []);
+});
+
+test("removes expired download sessions during cleanup without touching active sessions", async () => {
+  expiredSessionIds = ["expired-session"];
+  assert.deepEqual(await cleanupTransfers(), {
+    selected: 0, deleted: 0, failed: 0, sessionsDeleted: 1,
+  });
 });
 
 test("continues after R2 failure and retries the failed object on the next run", async () => {
   rows = [transfer({ expiresAt: ago(2 * hour) }), transfer({ id: "second", objectKey: "uploads/second", revokedAt: ago(2 * hour) })];
   r2Failures.add(rows[0].objectKey);
-  assert.deepEqual(await cleanupTransfers(), { selected: 2, deleted: 1, failed: 1 });
+  assert.deepEqual(await cleanupTransfers(), { selected: 2, deleted: 1, failed: 1, sessionsDeleted: 0 });
   assert.equal(rows[0].deletedAt, null);
   assert.ok(rows[1].deletedAt);
   r2Failures.clear();
-  assert.deepEqual(await cleanupTransfers(), { selected: 1, deleted: 1, failed: 0 });
+  assert.deepEqual(await cleanupTransfers(), { selected: 1, deleted: 1, failed: 0, sessionsDeleted: 0 });
   assert.ok(rows[0].deletedAt);
 });
 
 test("retries safely when deletion succeeds but the database marker write fails", async () => {
   rows = [transfer({ expiresAt: ago(2 * hour) })];
   dbFailures.add(rows[0].id);
-  assert.deepEqual(await cleanupTransfers(), { selected: 1, deleted: 0, failed: 1 });
+  assert.deepEqual(await cleanupTransfers(), { selected: 1, deleted: 0, failed: 1, sessionsDeleted: 0 });
   assert.equal(rows[0].deletedAt, null);
   dbFailures.clear();
-  assert.deepEqual(await cleanupTransfers(), { selected: 1, deleted: 1, failed: 0 });
+  assert.deepEqual(await cleanupTransfers(), { selected: 1, deleted: 1, failed: 0, sessionsDeleted: 0 });
   assert.equal(deletedKeys.length, 2);
 });
 
 test("bounds each run to 100 candidates", async () => {
   rows = Array.from({ length: 101 }, (_, index) => transfer({ id: String(index), objectKey: `uploads/${index}`, expiresAt: ago(2 * hour) }));
-  assert.deepEqual(await cleanupTransfers(), { selected: 100, deleted: 100, failed: 0 });
+  assert.deepEqual(await cleanupTransfers(), { selected: 100, deleted: 100, failed: 0, sessionsDeleted: 0 });
   assert.equal(rows.filter(row => row.deletedAt === null).length, 1);
 });

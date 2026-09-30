@@ -1,0 +1,2 @@
+DOWNLOAD_API_URL=http://localhost:4000/api
+DOWNLOAD_WORKER_SECRET=replace-with-the-same-random-secret-as-the-api

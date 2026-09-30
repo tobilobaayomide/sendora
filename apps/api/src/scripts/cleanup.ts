@@ -5,7 +5,7 @@ import { and, asc, eq, isNull, lte, sql } from "drizzle-orm";
 
 import { env } from "../config/env";
 import { db } from "../db";
-import { transfers } from "../db/schema";
+import { downloadSessions, transfers } from "../db/schema";
 import { r2 } from "../lib/r2";
 
 export async function cleanupTransfers() {
@@ -43,7 +43,12 @@ export async function cleanupTransfers() {
     }
   }
 
-  return { selected: candidates.length, deleted, failed };
+  const expiredSessions = await db
+    .delete(downloadSessions)
+    .where(lte(downloadSessions.expiresAt, sql`clock_timestamp()`))
+    .returning({ id: downloadSessions.id });
+
+  return { selected: candidates.length, deleted, failed, sessionsDeleted: expiredSessions.length };
 }
 
 async function main() {

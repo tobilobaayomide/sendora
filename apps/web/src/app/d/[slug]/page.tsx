@@ -6,6 +6,7 @@ import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { isSendoraBundle } from "@/lib/prepare-upload";
 import { FileSummary } from "@/components/file-summary";
 import { Icon } from "@/components/icon";
+import { apiUrl } from "@/lib/api-url";
 import { getOwnerToken, removeOwnerToken, subscribeToOwnership } from "@/lib/transfer-ownership";
 
 import { transferErrorReason, type TransferErrorReason } from "@/lib/transfer-unavailable";
@@ -97,7 +98,7 @@ function RecipientPage({ slug }: { slug: string }) {
   const shareUrl = hasOwnerToken
     ? `${window.location.origin}/d/${encodeURIComponent(slug)}`
     : "";
-  const endpoint = `http://localhost:4000/transfers/${encodeURIComponent(slug)}`;
+  const endpoint = apiUrl(`/transfers/${encodeURIComponent(slug)}`);
 
   useEffect(() => {
     if (copyState !== "copied") return;

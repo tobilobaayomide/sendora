@@ -4,6 +4,7 @@ import { useRef, useState, type DragEvent, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
 import { FileSummary } from "@/components/file-summary";
 import { Icon } from "@/components/icon";
+import { apiUrl } from "@/lib/api-url";
 import { prepareUpload, selectionError } from "@/lib/prepare-upload";
 import { formatFileSize } from "@/lib/format-file-size";
 import { uploadFile, formatUploadEta, type UploadProgress } from "@/lib/upload-file";
@@ -101,7 +102,7 @@ export default function Home() {
       packaged = true;
       setPhase("preparing");
       const contentType = file.type || "application/octet-stream";
-      const response = await fetch("http://localhost:4000/uploads/presign", {
+      const response = await fetch(apiUrl("/uploads/presign"), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -134,7 +135,7 @@ export default function Home() {
       uploadedToR2 = true;
       setPhase("finalizing");
       const completionResponse = await fetch(
-        `http://localhost:4000/transfers/${encodeURIComponent(data.slug)}/complete`,
+        apiUrl(`/transfers/${encodeURIComponent(data.slug)}/complete`),
         { method: "POST" },
       );
       if (!completionResponse.ok) throw new Error("Transfer completion failed.");

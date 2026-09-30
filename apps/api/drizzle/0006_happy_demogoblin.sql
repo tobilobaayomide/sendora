@@ -1,0 +1,2 @@
+ALTER TABLE "download_sessions" ADD COLUMN "session_token_hash" text;--> statement-breakpoint
+CREATE UNIQUE INDEX "download_sessions_session_token_hash_idx" ON "download_sessions" USING btree ("session_token_hash");

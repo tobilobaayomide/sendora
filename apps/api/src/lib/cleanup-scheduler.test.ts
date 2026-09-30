@@ -3,8 +3,8 @@ import Module from "node:module";
 import { afterEach, beforeEach, mock, test } from "node:test";
 import Fastify from "fastify";
 
-type Result = { selected: number; deleted: number; failed: number };
-const empty: Result = { selected: 0, deleted: 0, failed: 0 };
+type Result = { selected: number; deleted: number; failed: number; sessionsDeleted: number };
+const empty: Result = { selected: 0, deleted: 0, failed: 0, sessionsDeleted: 0 };
 let cleanup: () => Promise<Result>;
 let calls: number;
 let tick: () => void;
@@ -101,12 +101,12 @@ test("synchronous failure also releases overlap protection", async () => {
 });
 
 test("partial batch failures log counts and remain retryable", async () => {
-  cleanup = async () => ({ selected: 3, deleted: 2, failed: 1 });
+  cleanup = async () => ({ selected: 3, deleted: 2, failed: 1, sessionsDeleted: 4 });
   stop = startCleanupScheduler(log);
   tick(); await flush();
   assert.equal(entries[0].level, "warn");
-  assert.deepEqual(entries[0].args[0], { selected: 3, deleted: 2, failed: 1 });
-  cleanup = async () => ({ selected: 1, deleted: 1, failed: 0 });
+  assert.deepEqual(entries[0].args[0], { selected: 3, deleted: 2, failed: 1, sessionsDeleted: 4 });
+  cleanup = async () => ({ selected: 1, deleted: 1, failed: 0, sessionsDeleted: 0 });
   tick(); await flush();
   assert.equal(calls, 2);
   assert.equal(entries[1].level, "info");

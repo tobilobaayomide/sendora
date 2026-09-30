@@ -28,16 +28,16 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
       className={`${sora.variable} ${dmSans.variable}`}
     >
       <body>
-        <a className="fixed top-3 left-3 z-10 -translate-y-[160%] rounded-lg bg-surface px-5 py-3 focus:translate-y-0" href="#main-content">Skip to content</a>
+        <a className="fixed top-3 left-3 z-10 translate-y-[-160%] rounded-lg bg-surface px-5 py-3 focus:translate-y-0" href="#main-content">Skip to content</a>
         <header className="
-          mx-auto flex min-h-24 w-[calc(100%_-_64px)] max-w-[1104px] items-center justify-between gap-6
-          compact:min-h-20 compact:w-[calc(100%_-_40px)]
+          mx-auto flex min-h-20 w-[calc(100%-64px)] max-w-5xl items-center justify-between gap-6
+          compact:min-h-20 compact:w-[calc(100%-40px)]
         ">
           <Brand />
           <span className="text-[13px] text-muted compact:hidden">A little less permanent.</span>
         </header>
         {children}
-        <footer className="mt-auto px-5 py-8 text-center text-[12px] text-muted compact:pb-6 compact:text-[11px]">Send it. Share it. Gone when it’s done.</footer>
+        <footer className="mt-auto px-5 pt-10 pb-6 text-center text-[12px] text-muted compact:pb-6 compact:text-[11px]">Send it. Share it. Gone when it’s done.</footer>
       </body>
     </html>
   );

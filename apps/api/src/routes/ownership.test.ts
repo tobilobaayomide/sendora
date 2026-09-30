@@ -3,8 +3,10 @@ import { createHash } from "node:crypto";
 import Module from "node:module";
 import { after, beforeEach, test } from "node:test";
 import { S3Client } from "@aws-sdk/client-s3";
+import { DrizzleQueryError } from "drizzle-orm";
 import { PgDialect } from "drizzle-orm/pg-core";
 import Fastify from "fastify";
+import postgres from "postgres";
 
 import { transfers } from "../db/schema";
 import { createOwnerToken, verifyOwnerToken } from "../lib/owner-token";
@@ -13,6 +15,8 @@ type Transfer = typeof transfers.$inferSelect;
 type Insert = typeof transfers.$inferInsert;
 let row: Transfer | undefined;
 let inserted: Insert | undefined;
+let insertAttempts: Insert[] = [];
+let insertErrors: Error[] = [];
 let writes = 0;
 let databaseError: Error | undefined;
 const dialect = new PgDialect();
@@ -35,6 +39,9 @@ const client = new S3Client({
 stubModule("../lib/r2", { r2: client });
 stubModule("../db", { db: {
   insert: () => ({ values: async (values: Insert) => {
+    insertAttempts.push(values);
+    const insertError = insertErrors.shift();
+    if (insertError) throw insertError;
     if (databaseError) throw databaseError;
     inserted = values;
   } }),
@@ -80,7 +87,8 @@ beforeEach(() => {
     uploadedAt: new Date(), revokedAt: null, downloadCount: 0, maxDownloads: 1,
     exhaustedAt: null, deletedAt: null,
   };
-  inserted = undefined; writes = 0; databaseError = undefined; logs.length = 0;
+  inserted = undefined; insertAttempts = []; insertErrors = [];
+  writes = 0; databaseError = undefined; logs.length = 0;
 });
 
 function revoke(ownerToken: string, slug = "public-slug") {
@@ -97,6 +105,8 @@ test("creation returns an independent owner token and persists only its SHA-256 
   assert.equal(response.statusCode, 200);
   const body = response.json();
   assert.deepEqual(Object.keys(body).sort(), ["ownerToken", "slug", "uploadUrl"]);
+  assert.match(body.slug, /^[A-Za-z0-9]{12}$/);
+  assert.equal(inserted?.slug, body.slug);
   assert.match(body.ownerToken, /^[A-Za-z0-9_-]{43}$/);
   assert.notEqual(body.ownerToken, body.slug);
   assert.ok(inserted);
@@ -105,6 +115,65 @@ test("creation returns an independent owner token and persists only its SHA-256 
   assert.equal(response.headers["cache-control"], "no-store");
   assert.ok(!logs.join("").includes(body.ownerToken));
   assert.ok(!logs.join("").includes(inserted.ownerTokenHash));
+});
+
+function uniqueViolation(constraintName: string) {
+  const cause = Object.assign(new postgres.PostgresError("duplicate key"), {
+    code: "23505", constraint_name: constraintName,
+  });
+  return new DrizzleQueryError("insert into transfers", [], cause);
+}
+
+test("new public slugs are independently generated 12-character alphanumeric values", async () => {
+  const slugs = new Set<string>();
+  for (let index = 0; index < 5; index++) {
+    const response = await app.inject({ method: "POST", url: "/uploads/presign", payload: uploadBody });
+    assert.equal(response.statusCode, 200);
+    const slug = response.json().slug as string;
+    assert.match(slug, /^[A-Za-z0-9]{12}$/);
+    assert.ok(!slug.includes("-") && !slug.includes("_"));
+    slugs.add(slug);
+  }
+  assert.equal(slugs.size, 5);
+});
+
+test("slug collision retries with a fresh slug and preserves other transfer values", async () => {
+  insertErrors.push(uniqueViolation("transfers_slug_unique"));
+  const response = await app.inject({ method: "POST", url: "/uploads/presign", payload: uploadBody });
+  assert.equal(response.statusCode, 200);
+  assert.equal(insertAttempts.length, 2);
+  assert.notEqual(insertAttempts[0].slug, insertAttempts[1].slug);
+  assert.equal(response.json().slug, insertAttempts[1].slug);
+  assert.equal(insertAttempts[0].objectKey, insertAttempts[1].objectKey);
+  assert.equal(insertAttempts[0].ownerTokenHash, insertAttempts[1].ownerTokenHash);
+});
+
+test("slug collision retries are bounded to three insert attempts", async () => {
+  insertErrors.push(...Array.from({ length: 3 }, () => uniqueViolation("transfers_slug_unique")));
+  const response = await app.inject({ method: "POST", url: "/uploads/presign", payload: uploadBody });
+  assert.equal(response.statusCode, 500);
+  assert.deepEqual(response.json(), { error: "Unable to create transfer" });
+  assert.equal(insertAttempts.length, 3);
+  assert.equal(new Set(insertAttempts.map(attempt => attempt.slug)).size, 3);
+});
+
+test("unrelated database and object-key uniqueness failures are not retried", async () => {
+  for (const error of [new Error("database unavailable"), uniqueViolation("transfers_object_key_unique")]) {
+    insertAttempts = [];
+    insertErrors.push(error);
+    const response = await app.inject({ method: "POST", url: "/uploads/presign", payload: uploadBody });
+    assert.equal(response.statusCode, 500);
+    assert.deepEqual(response.json(), { error: "Unable to create transfer" });
+    assert.equal(insertAttempts.length, 1);
+  }
+});
+
+test("legacy nonempty slugs remain accepted by transfer routes", async () => {
+  assert.ok(row);
+  row.slug = "K7xP_2mQa-W4abcdef123";
+  const response = await app.inject({ method: "GET", url: `/transfers/${row.slug}` });
+  assert.equal(response.statusCode, 200);
+  assert.equal(response.json().slug, row.slug);
 });
 
 test("correct token revokes and repeated revocation preserves the timestamp", async () => {

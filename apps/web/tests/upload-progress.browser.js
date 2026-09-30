@@ -32,7 +32,7 @@ export default async function checkUploadProgress(page) {
   for (const count of [1, 2]) {
     await page.goto("http://localhost:3000");
     await page.locator('#upload-file').setInputFiles(Array.from({ length: count }, (_, index) => ({ name: `file${index}.txt`, mimeType: "text/plain", buffer: Buffer.from("test bytes") })));
-    await page.getByRole("button", { name: count === 1 ? "Send file" : "Send 2 files", exact: true }).click();
+    await page.getByRole("button", { name: count === 1 ? "Send File" : "Send 2 Files", exact: true }).click();
     await page.getByRole("progressbar").waitFor();
     check(await page.evaluate(() => window.testUpload.body.size) === metadata.size, `${count} file(s): actual upload size matches presign`);
     if (count === 2) check(metadata.size > 20 && metadata.filename === "sendora-files.zip", "ZIP progress uses generated archive size");
@@ -48,7 +48,7 @@ export default async function checkUploadProgress(page) {
     check(completionCalls === before, "100% alone does not finalize before R2 response");
     await page.evaluate(() => window.testUpload.onload());
     await page.getByRole("button", { name: "Finalizing your transfer…", exact: true }).waitFor();
-    check(await page.getByRole("progressbar").count() === 0, "finalizing replaces network progress");
+    check(await page.getByRole("progressbar").getAttribute("aria-valuenow") === "100", "finalizing retains measured full progress without showing ready");
     check(new URL(page.url()).pathname === "/", "not ready before completion");
     // The UI update can precede interception of the completion request.
     for (let attempt = 0; completionCalls === before && attempt < 100; attempt++) {

@@ -13,9 +13,9 @@
   --color-brand: #0891b2;
   --color-brand-hover: #0e7490;
   --color-brand-soft: #ecfeff;
-  --color-action: #0e7490;
-  --color-action-hover: #155e75;
-  --color-on-brand: #ffffff;
+  --color-action: #06b6d4;
+  --color-action-hover: #22d3ee;
+  --color-on-brand: #062b36;
   --color-success: #15803d;
   --color-success-soft: #f0fdf4;
   --color-danger: #b91c1c;
@@ -33,18 +33,18 @@
 @media (prefers-color-scheme: dark) {
   :root {
     color-scheme: dark;
-    --color-background: #0b1220;
-    --color-surface: #111c2e;
-    --color-surface-subtle: #162337;
+    --color-background: #081320;
+    --color-surface: #0e1d2d;
+    --color-surface-subtle: #132638;
     --color-foreground: #e7edf6;
     --color-muted: #9cacc1;
     --color-muted-strong: #c0ccdc;
-    --color-border: #29374a;
-    --color-border-strong: #435269;
+    --color-border: #24384a;
+    --color-border-strong: #3a5269;
     --color-brand: #22d3ee;
     --color-brand-hover: #67e8f9;
-    --color-brand-soft: #122e3c;
-    --color-action: #22d3ee;
+    --color-brand-soft: #103443;
+    --color-action: #16cbe5;
     --color-action-hover: #67e8f9;
     --color-on-brand: #08242f;
     --color-success: #86efac;

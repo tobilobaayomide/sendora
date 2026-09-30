@@ -1,16 +1,40 @@
 import Link from "next/link";
+import { Rotate3d } from "lucide-react";
 
 export function Brand() {
   return (
-    <Link className="
-      inline-flex items-center gap-2.5 font-heading text-[22px] font-semibold tracking-[-0.9px]
-      no-underline compact:text-[20px]
-    " href="/" aria-label="Sendora home">
-      <svg className="shrink-0 text-brand compact:size-[29px]" width="32" height="32" viewBox="0 0 32 32" fill="none" aria-hidden="true">
-        <rect width="32" height="32" rx="8" fill="currentColor" />
-        <path d="M8 11h15l-4-4M24 21H9l4 4" className="stroke-on-brand" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" />
-      </svg>
-      <span>Sendora</span>
+    <Link
+      href="/"
+      aria-label="Sendora home"
+      className="
+        group inline-flex items-center gap-2.5
+        no-underline
+      "
+    >
+      <span
+        className="
+          flex size-7 items-center justify-center
+          rounded-lg bg-brand text-on-brand
+          transition-transform duration-200
+          group-hover:-rotate-6 group-hover:scale-105
+          compact:size-8
+        "
+      >
+        <Rotate3d
+          className="size-5.5 -translate-x-px translate-y-px"
+          strokeWidth={2.3}
+        />
+      </span>
+
+      <span
+        className="
+          font-heading text-[22px] font-semibold
+          tracking-[-0.8px] text-foreground
+          compact:text-[20px]
+        "
+      >
+        Sendora
+      </span>
     </Link>
   );
 }

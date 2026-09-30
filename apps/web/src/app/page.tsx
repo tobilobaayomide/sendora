@@ -225,7 +225,7 @@ export default function Home() {
             <div className="px-5 py-5 narrow:px-3">
               <p className="font-semibold">{files.length} files selected</p>
               <p className="mt-1 text-[13px] text-muted">{formatFileSize(files.reduce((total, selected) => total + selected.size, 0))} total</p>
-              <p className="mt-2 text-[12px] text-muted">Multiple files will be bundled into one ZIP. Up to 50 MiB total.</p>
+              <p className="mt-2 text-[12px] text-muted">Multiple files will be bundled into one ZIP. Up to 500 MB total.</p>
               <ul className="mt-3 max-h-48 overflow-y-auto" aria-label="Selected files">
                 {files.map((selected, index) => (
                   <li key={index} className="flex items-center gap-3 border-b border-border py-2">

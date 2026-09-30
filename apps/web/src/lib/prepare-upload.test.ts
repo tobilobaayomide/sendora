@@ -32,9 +32,12 @@ test("names stay flat and unique, including suffix collisions and Unicode", () =
 
 test("bundle limit validates aggregate bytes and entry count before reading files", async () => {
   const sized = (size: number) => ({ size } as File);
-  assert.equal(selectionError([sized(MAX_BUNDLE_BYTES), sized(0)]), null);
-  assert.match(selectionError([sized(MAX_BUNDLE_BYTES), sized(1)])!, /50 MiB/);
-  await assert.rejects(prepareUpload([sized(MAX_BUNDLE_BYTES), sized(1)]), /50 MiB/);
+  assert.equal(MAX_BUNDLE_BYTES, 500 * 1024 * 1024);
+  assert.equal(selectionError([sized(MAX_BUNDLE_BYTES - 2), sized(1)]), null);
+  assert.equal(selectionError([sized(MAX_BUNDLE_BYTES - 1), sized(1)]), null);
+  assert.match(selectionError([sized(MAX_BUNDLE_BYTES), sized(1)])!, /500 MB/);
+  await assert.rejects(prepareUpload([sized(MAX_BUNDLE_BYTES), sized(1)]), /500 MB/);
+  assert.equal(selectionError(Array.from({ length: 500 }, () => sized(0))), null);
   assert.match(selectionError(Array.from({ length: 501 }, () => sized(0)))!, /500/);
 });
 

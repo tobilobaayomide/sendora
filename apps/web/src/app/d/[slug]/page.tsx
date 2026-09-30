@@ -164,13 +164,17 @@ function RecipientPage({ slug }: { slug: string }) {
       });
 
       const data: unknown = await response.json();
-      if (typeof data !== "object" || data === null ||
-          !("downloadUrl" in data) || typeof data.downloadUrl !== "string" ||
-          new URL(data.downloadUrl).protocol !== "https:") {
+      const downloadUrl = typeof data === "object" && data !== null &&
+        "downloadUrl" in data && typeof data.downloadUrl === "string"
+        ? new URL(data.downloadUrl)
+        : null;
+      const localHttpUrl = downloadUrl?.protocol === "http:" &&
+        ["localhost", "127.0.0.1", "[::1]"].includes(downloadUrl.hostname);
+      if (!downloadUrl || (downloadUrl.protocol !== "https:" && !localHttpUrl)) {
         throw new Error("Invalid download response");
       }
 
-      window.location.assign(data.downloadUrl);
+      window.location.assign(downloadUrl.toString());
       setDownloadStarted(true);
     } catch {
       setDownloadError("Unable to start the download. Please try again later.");

@@ -11,11 +11,11 @@ export function startCleanupScheduler(log: Pick<FastifyBaseLogger, "info" | "war
 
     running = Promise.resolve()
       .then(() => cleanupTransfers())
-      .then(({ selected, deleted, failed }) => {
+      .then(({ selected, deleted, failed, sessionsDeleted }) => {
         if (failed > 0) {
-          log.warn({ selected, deleted, failed }, "Scheduled cleanup finished with failures; next run will retry");
+          log.warn({ selected, deleted, failed, sessionsDeleted }, "Scheduled cleanup finished with failures; next run will retry");
         } else {
-          log.info({ selected, deleted, failed }, "Scheduled cleanup finished");
+          log.info({ selected, deleted, failed, sessionsDeleted }, "Scheduled cleanup finished");
         }
       })
       .catch(() => {

@@ -1,13 +1,12 @@
-import { GetObjectCommand, HeadObjectCommand, S3ServiceException } from "@aws-sdk/client-s3";
-import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
+import { HeadObjectCommand, S3ServiceException } from "@aws-sdk/client-s3";
 import { and, eq, getTableColumns, gt, isNotNull, isNull, lt, sql } from "drizzle-orm";
 import type { FastifyInstance } from "fastify";
 import { z } from "zod";
 
 import { env } from "../config/env";
 import { db } from "../db";
-import { transfers } from "../db/schema";
-import { attachmentDisposition } from "../lib/content-disposition";
+import { downloadSessions, transfers } from "../db/schema";
+import { createDownloadToken } from "../lib/download-token";
 import { verifyOwnerToken } from "../lib/owner-token";
 import { r2 } from "../lib/r2";
 import { transferUnavailableReason, type TransferUnavailableReason } from "../lib/transfer-unavailable";
@@ -41,6 +40,8 @@ class DownloadUnavailableError extends Error {
     super(message);
   }
 }
+
+export const DOWNLOAD_SESSION_LIFETIME_MS = 15 * 60 * 1000;
 
 export async function transferRoutes(app: FastifyInstance) {
   app.post("/transfers/:slug/revoke", async (request, reply) => {
@@ -93,7 +94,7 @@ export async function transferRoutes(app: FastifyInstance) {
     }
 
     try {
-      return await db.transaction(async (tx) => {
+      const download = await db.transaction(async (tx) => {
         const [transfer] = await tx
           .update(transfers)
           .set({
@@ -110,9 +111,8 @@ export async function transferRoutes(app: FastifyInstance) {
             lt(transfers.downloadCount, transfers.maxDownloads),
           ))
           .returning({
-            objectKey: transfers.objectKey,
+            id: transfers.id,
             expiresAt: transfers.expiresAt,
-            originalName: transfers.originalName,
           });
 
         if (!transfer) {
@@ -132,33 +132,19 @@ export async function transferRoutes(app: FastifyInstance) {
             transferUnavailableReason(current, current.observedAt));
         }
 
-        // Pin signing time so SDK work cannot extend the URL beyond transfer expiry.
-        const signingDate = new Date();
-        const expiresIn = Math.min(
-          300,
-          Math.floor((transfer.expiresAt.getTime() - signingDate.getTime()) / 1000),
-        );
+        const bootstrap = createDownloadToken();
+        await tx.insert(downloadSessions).values({
+          transferId: transfer.id,
+          bootstrapTokenHash: bootstrap.tokenHash,
+          expiresAt: sql`least(${transfer.expiresAt}, clock_timestamp() + ${DOWNLOAD_SESSION_LIFETIME_MS} * interval '1 millisecond')`,
+        });
 
-        if (expiresIn < 1) {
-          throw new DownloadUnavailableError(410, "transfer_unavailable",
-            Date.now() >= transfer.expiresAt.getTime() ? "expired" : undefined);
-        }
-
-        const downloadUrl = await getSignedUrl(r2, new GetObjectCommand({
-          Bucket: env.R2_BUCKET_NAME,
-          Key: transfer.objectKey,
-          ResponseContentDisposition: attachmentDisposition(transfer.originalName),
-        }), { expiresIn, signingDate });
-
-        // SigV4 timestamps have whole-second precision. Roll back if signing took too long.
-        const urlExpiresAt = Math.floor(signingDate.getTime() / 1000) * 1000 + expiresIn * 1000;
-        if (Date.now() >= urlExpiresAt) {
-          throw new DownloadUnavailableError(410, "transfer_unavailable",
-            Date.now() >= transfer.expiresAt.getTime() ? "expired" : undefined);
-        }
-
-        return { downloadUrl, expiresIn };
+        const workerBaseUrl = env.DOWNLOAD_WORKER_URL.replace(/\/+$/, "");
+        return { downloadUrl: `${workerBaseUrl}/download/${bootstrap.token}` };
       });
+      reply.header("Cache-Control", "no-store");
+      reply.header("Referrer-Policy", "no-referrer");
+      return download;
     } catch (error) {
       if (error instanceof DownloadUnavailableError) {
         return reply.status(error.statusCode).send({

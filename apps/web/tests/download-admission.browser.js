@@ -45,7 +45,7 @@ export default async function checkDownloadAdmission(page) {
     const before = admissions;
     const beforeDownloads = downloads;
     await page.goto("http://localhost:3000/d/final-slot-test");
-    const action = page.getByRole("button", { name: bundle ? "Download all" : "Download file", exact: true });
+    const action = page.getByRole("button", { name: bundle ? "Download All" : "Download File", exact: true });
     await action.click();
     await page.getByRole("status").filter({ hasText: "Your Download is Starting." }).waitFor();
     await page.getByText("0 downloads remaining. Another download cannot be started.", { exact: true }).waitFor();
@@ -67,7 +67,7 @@ export default async function checkDownloadAdmission(page) {
     freshExhausted = false;
     rejectAdmission = true;
     await page.reload();
-    await page.getByRole("button", { name: bundle ? "Download all" : "Download file", exact: true }).click();
+    await page.getByRole("button", { name: bundle ? "Download All" : "Download File", exact: true }).click();
     await page.getByRole("heading", { name: "Download Limit Reached", exact: true }).waitFor();
     check(await page.getByRole("region", { name: "Transfer details" }).getByRole("alert").isVisible(), `${kind}: stale-page 410 is terminal`);
     check(downloads === beforeDownloads + 1, `${kind}: rejected admission starts no download`);

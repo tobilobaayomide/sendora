@@ -117,8 +117,8 @@ export function TransferForm() {
   return (
     <form
       className="
-        mx-auto max-w-140 rounded-xl border border-border bg-surface p-6 shadow-panel
-        compact:rounded-xl compact:p-4 narrow:p-3
+        mx-auto max-w-140 rounded-2xl border border-border/80 bg-surface/95 p-7 shadow-panel backdrop-blur-sm
+        compact:rounded-2xl compact:p-4.5 narrow:p-3
       "
       onSubmit={handleUpload}
       noValidate
@@ -164,11 +164,11 @@ export function TransferForm() {
       <button
         type="submit"
         className="
-        inline-flex items-center justify-center gap-2.5 rounded-lg border font-semibold leading-[1.4]
-        text-center no-underline transition-colors duration-150 ease-[ease]
+        inline-flex items-center justify-center gap-2.5 rounded-xl border font-semibold leading-[1.4]
+        text-center no-underline shadow-sm transition-[background-color,box-shadow,transform] duration-150 ease-[ease]
         motion-reduce:transition-none disabled:border-border disabled:bg-surface-subtle
-        disabled:text-muted border-transparent bg-action text-on-brand enabled:hover:bg-action-hover enabled:active:brightness-95
-        mt-5 min-h-12 w-full px-5 py-2.75
+        disabled:text-muted border-transparent bg-brand text-white dark:text-on-brand enabled:hover:bg-brand-hover enabled:active:translate-y-px enabled:hover:shadow-md
+        mt-6 min-h-13 w-full px-5 py-3 compact:mt-5
       "
         disabled={isBusy || !hasFiles}
       >

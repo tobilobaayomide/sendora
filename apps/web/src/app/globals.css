@@ -60,6 +60,45 @@
 @custom-variant phone (@media (max-width: 480px));
 @custom-variant narrow (@media (max-width: 359px));
 
+.feedback-enter {
+  animation: feedback-enter 220ms cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+@keyframes feedback-enter {
+  from {
+    opacity: 0;
+    transform: translateY(5px) scale(0.99);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .feedback-enter {
+    animation: none;
+  }
+}
+
+.radial-background {
+  background: radial-gradient(
+    90% 75% at 50% 24%,
+    color-mix(in srgb, var(--color-brand) 20%, var(--color-background)) 0%,
+    var(--color-background) 68%
+  );
+}
+
+@media (max-width: 600px) {
+  .radial-background {
+    background: radial-gradient(
+      115% 42% at 50% 18%,
+      color-mix(in srgb, var(--color-brand) 13%, var(--color-background)) 0%,
+      var(--color-background) 82%
+    );
+  }
+}
+
 @layer base {
   body {
     min-height: 100svh;
@@ -77,5 +116,10 @@
   button { cursor: pointer; }
   button:disabled { cursor: not-allowed; }
   :focus-visible { outline: 3px solid var(--color-brand); outline-offset: 4px; }
+  .transfer-page button:focus-visible,
+  .transfer-page a:focus-visible {
+    outline-width: 1px;
+    outline-offset: 2px;
+  }
   ::selection { background: var(--color-brand); color: var(--color-on-brand); }
 }

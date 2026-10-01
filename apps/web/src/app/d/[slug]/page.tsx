@@ -216,24 +216,24 @@ function RecipientPage({ slug }: { slug: string }) {
     <main
       id="main-content"
       className="
-      mx-auto flex w-[calc(100%-40px)] max-w-140 flex-1 flex-col justify-center py-7
+      transfer-page mx-auto flex w-[calc(100%-40px)] max-w-140 flex-1 flex-col justify-center py-7
       phone:w-[calc(100%-32px)] phone:py-5
     "
     >
       <section
-        className="overflow-hidden rounded-xl border border-border bg-surface shadow-panel"
+        className="overflow-hidden rounded-2xl border border-border/80 bg-surface/95 shadow-panel backdrop-blur-sm"
         aria-label="Transfer details"
       >
         {state.status === "ready" && (
           <header className="px-6 pt-7 pb-2 text-center phone:px-5">
             {hasOwnerToken && (
-              <span className="mx-auto mb-3 grid size-12 place-items-center rounded-full border border-success/25 bg-success-soft text-success">
-                <Icon name="check" className="size-6" />
+              <span className="mx-auto mb-3 grid size-12 place-items-center rounded-full border border-success/25 bg-green-600 text-white">
+                <Icon name="check" className="size-8" />
               </span>
             )}
             <span
-              className={`${hasOwnerToken ? "hidden" : "inline-flex"} items-center gap-1.75 rounded-[5px] px-2.5 py-1.25 text-[12px] font-semibold
-            ${!hasOwnerToken && !downloadStarted && remainingDownloads === 0 ? "bg-surface-subtle text-muted-strong" : "bg-success-soft text-success"}`}
+              className={`${hasOwnerToken ? "hidden" : "inline-flex"} items-center gap-1.75 rounded-full px-2.5 py-1.25 text-[12px] font-semibold
+            ${!hasOwnerToken && !downloadStarted && remainingDownloads === 0 ? "bg-surface-subtle text-muted-strong" : "bg-green-600 text-white"}`}
             >
               <Icon
                 className="size-3.75"
@@ -398,10 +398,6 @@ function RecipientPage({ slug }: { slug: string }) {
               </div>
             ) : (
               <>
-                <p className="flex items-center gap-1.75 text-[12px] leading-normal text-muted">
-                  <Icon name="shield" className="size-3.5" /> You manage this
-                  transfer from this browser.
-                </p>
                 <button
                   ref={revokeTrigger}
                   type="button"
@@ -423,7 +419,7 @@ function RecipientPage({ slug }: { slug: string }) {
         )}
         {revokeError && (
           <p
-            className="
+            className="feedback-enter
           flex items-start gap-2.5 rounded-lg border border-transparent bg-danger-soft px-4 py-3.25
           text-[14px] leading-[1.6] text-danger wrap-anywhere mx-6 my-5
         "

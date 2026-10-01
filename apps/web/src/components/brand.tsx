@@ -1,5 +1,5 @@
+import Image from "next/image";
 import Link from "next/link";
-import { Rotate3d } from "lucide-react";
 
 export function Brand() {
   return (
@@ -11,20 +11,13 @@ export function Brand() {
         no-underline
       "
     >
-      <span
-        className="
-          flex size-7 items-center justify-center
-          rounded-lg bg-brand text-on-brand
-          transition-transform duration-200
-          group-hover:-rotate-6 group-hover:scale-105
-          compact:size-8
-        "
-      >
-        <Rotate3d
-          className="size-5.5 -translate-x-px translate-y-px"
-          strokeWidth={2.3}
-        />
-      </span>
+      <Image
+        src="/sendora-mark.png"
+        alt=""
+        width={35}
+        height={35}
+        className="size-9 object-contain transition-transform duration-200 group-hover:-rotate-6 group-hover:scale-105 compact:size-10"
+      />
 
       <span
         className="

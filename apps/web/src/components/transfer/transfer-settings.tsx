@@ -26,23 +26,25 @@ export function TransferSettings({
 }) {
   return (
     <fieldset
-      className={`mt-6 grid min-w-0 grid-cols-2 gap-5 border-0 p-0 compact:gap-3.5 ${hidden ? "hidden" : ""}`}
+      className={`mt-6 grid min-w-0 grid-cols-2 gap-5 border-0 border-t border-border/80 p-0 pt-5 compact:mt-5 compact:gap-3 compact:pt-4 ${hidden ? "hidden" : ""}`}
       disabled={disabled}
     >
       <legend className="sr-only">Transfer Settings</legend>
       <div className="min-w-0">
         <label
-          className="mb-2 flex items-center gap-1.75 text-[13px] font-semibold compact:gap-1.25 compact:text-[12px]"
+          className="mb-2 flex items-center gap-2 text-[13px] font-semibold tracking-[-0.1px] compact:gap-1.5 compact:text-[12px]"
           htmlFor="expiry-hours"
         >
-          <Icon name="clock" className="size-4 text-muted" />
+          <Icon name="clock" className="size-4 text-brand" />
           Expires After
         </label>
         <div
           className="
-          flex items-center rounded-lg border border-border-strong bg-surface-subtle/30 pr-3
-          focus-within:outline focus-within:outline-offset focus-within:outline-brand
-          has-[input[aria-invalid=true]]:border-danger compact:pr-2.5
+          flex items-center rounded-xl border border-border-strong/70 bg-surface px-1.5 pr-2.5
+          shadow-sm transition-[border-color,box-shadow] duration-150
+          hover:border-brand/45 focus-within:border-brand focus-within:ring-3 focus-within:ring-brand/10
+          has-[input[aria-invalid=true]]:border-danger has-[input[aria-invalid=true]]:focus-within:ring-danger/10
+          compact:pr-2
         "
         >
           <input
@@ -50,8 +52,8 @@ export function TransferSettings({
             id="expiry-hours"
             type="number"
             className="
-              h-11 w-full min-w-0 rounded-lg border-0 bg-transparent px-3 py-2.5 text-[16px]
-              font-semibold text-foreground focus:outline-none disabled:text-muted compact:px-2.5
+              h-11 w-full min-w-0 rounded-lg border-0 bg-transparent px-2.5 py-2.5 text-[16px]
+              font-semibold tabular-nums text-foreground focus:outline-none disabled:text-muted compact:px-2
             "
             min={1}
             max={168}
@@ -63,27 +65,29 @@ export function TransferSettings({
             }
             onChange={(event) => onExpiryChange(event.target.value)}
           />
-          <span className="pointer-events-none text-[13px] text-muted compact:text-[12px]">
-            hours
+          <span className="pointer-events-none shrink-0 rounded-md bg-surface-subtle px-2 py-1 text-[11px] font-medium text-muted compact:px-1.5">
+            Hours
           </span>
         </div>
-        <p className="mt-1.5 text-[12px] text-muted" id="expiry-hint">
-          1–168 hours
+        <p className="mt-2 text-[11px] text-muted" id="expiry-hint">
+          1–168 Hours
         </p>
       </div>
       <div className="min-w-0">
         <label
-          className="mb-2 flex items-center gap-1.75 text-[13px] font-semibold compact:gap-1.25 compact:text-[12px]"
+          className="mb-2 flex items-center gap-2 text-[13px] font-semibold tracking-[-0.1px] compact:gap-1.5 compact:text-[12px]"
           htmlFor="download-limit"
         >
-          <Icon name="file-download" className="size-4 text-muted" />
+          <Icon name="file-download" className="size-4 text-brand" />
           Download Limit
         </label>
         <div
           className="
-          flex items-center rounded-lg border border-border-strong bg-surface-subtle/30 pr-3
-          focus-within:outline focus-within:outline-offset focus-within:outline-brand
-          has-[input[aria-invalid=true]]:border-danger compact:pr-2.5
+          flex items-center rounded-xl border border-border-strong/70 bg-surface px-1.5 pr-2.5
+          shadow-sm transition-[border-color,box-shadow] duration-150
+          hover:border-brand/45 focus-within:border-brand focus-within:ring-3 focus-within:ring-brand/10
+          has-[input[aria-invalid=true]]:border-danger has-[input[aria-invalid=true]]:focus-within:ring-danger/10
+          compact:pr-2
         "
         >
           <input
@@ -91,8 +95,8 @@ export function TransferSettings({
             id="download-limit"
             type="number"
             className="
-              h-11 w-full min-w-0 rounded-lg border-0 bg-transparent px-3 py-2.5 text-[16px]
-              font-semibold text-foreground focus:outline-none disabled:text-muted compact:px-2.5
+              h-11 w-full min-w-0 rounded-lg border-0 bg-transparent px-2.5 py-2.5 text-[16px]
+              font-semibold tabular-nums text-foreground focus:outline-none disabled:text-muted compact:px-2
             "
             min={1}
             max={100}
@@ -104,12 +108,12 @@ export function TransferSettings({
             }
             onChange={(event) => onDownloadLimitChange(event.target.value)}
           />
-          <span className="pointer-events-none text-[13px] text-muted compact:text-[12px]">
-            {Number(downloadLimit) === 1 ? "download" : "downloads"}
+          <span className="pointer-events-none shrink-0 rounded-md bg-surface-subtle px-2 py-1 text-[11px] font-medium text-muted compact:px-1.5">
+            {Number(downloadLimit) === 1 ? "Download" : "Downloads"}
           </span>
         </div>
-        <p className="mt-1.5 text-[12px] text-muted" id="downloads-hint">
-          1–100 downloads
+        <p className="mt-2 text-[11px] text-muted" id="downloads-hint">
+          1–100 Downloads
         </p>
       </div>
     </fieldset>

@@ -56,11 +56,11 @@ export function FilePicker({
 
   return (
     <div
-      className={`relative rounded-lg ${hidden ? "hidden" : ""} ${files.length ? "" : "border border-dashed"}
-        transition-colors duration-150 ease-[ease] motion-reduce:transition-none
+      className={`relative rounded-xl ${hidden ? "hidden" : ""} ${files.length ? "" : "border border-dashed"}
+        transition-[background-color,border-color,box-shadow] duration-200 ease-[ease] motion-reduce:transition-none
         has-[input:focus-visible]:outline-2 has-[input:focus-visible]:outline-offset-4 has-[input:focus-visible]:outline-brand
-        ${isDragging ? "border-brand bg-brand-soft" : files.length ? "" : "border-border-strong bg-surface-subtle/60"}
-        ${disabled || files.length ? "" : "hover:border-brand hover:bg-brand-soft"}`}
+        ${isDragging ? "border-brand bg-brand-soft shadow-[inset_0_0_0_1px_var(--color-brand)]" : files.length ? "" : "border-border-strong/80 bg-surface-subtle/45"}
+        ${disabled || files.length ? "" : "hover:border-brand/70 hover:bg-brand-soft/50"}`}
       onDragEnter={(event) => {
         event.preventDefault();
         if (disabled) return;
@@ -102,7 +102,7 @@ export function FilePicker({
             </p>
           </div>
           <ul
-            className="mt-3 max-h-52 overflow-y-auto overscroll-contain rounded-lg border border-border divide-y divide-border bg-surface-subtle/40"
+            className="mt-3 max-h-52 overflow-y-auto overscroll-contain rounded-xl border border-border divide-y divide-border bg-surface-subtle/45"
             aria-label="Selected files"
           >
             {files.map((selected, index) => (
@@ -151,7 +151,7 @@ export function FilePicker({
         </div>
       ) : file ? (
         <div>
-          <div className="rounded-lg border border-border bg-surface-subtle/40 px-3 py-3">
+          <div className="rounded-xl border border-border bg-surface-subtle/45 px-3 py-3">
             <FileSummary filename={file.name} size={file.size} variant="upload">
               <button
                 type="button"
@@ -176,13 +176,13 @@ export function FilePicker({
         </div>
       ) : (
         <label
-          className={`flex min-h-48 flex-col items-center justify-center px-4 py-6 text-center ${disabled ? "cursor-default" : "cursor-pointer"}`}
+          className={`flex min-h-52 flex-col items-center justify-center px-4 py-7 text-center ${disabled ? "cursor-default" : "cursor-pointer"}`}
           htmlFor="upload-file"
         >
-          <span className="mb-4 grid size-12 place-items-center rounded-xl bg-brand-soft text-brand-hover">
-            <Icon name="arrow-up" className="size-6" />
+          <span className="mb-4 grid place-items-center text-brand-hover">
+            <Icon name="upload" className="size-12" />
           </span>
-          <span className="text-[16px] font-semibold">
+          <span className="text-[17px] font-semibold tracking-[-0.2px]">
             {isDragging ? "Drop it Here" : "Drop Your Files Here"}
           </span>
           <span className="mt-0.75 text-[14px] text-muted">
@@ -191,8 +191,8 @@ export function FilePicker({
               Browse Files
             </span>
           </span>
-          <span className="mt-3 text-[12px] text-muted">
-            One Link. Any Format.
+           <span className="mt-4 rounded-full bg-surface-subtle px-3 py-1 text-[11px] font-medium text-muted">
+            Up to 500 MB total <span aria-hidden="true">·</span> Any file type
           </span>
         </label>
       )}

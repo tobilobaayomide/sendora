@@ -14,7 +14,7 @@ export default function Home() {
           text-balance compact:mx-auto compact:max-w-85 compact:tracking-[-1.1px]
         "
         >
-          Send <span className="text-brand">Files</span>. Simple and{" "}
+          Send Files. Simple and{" "}
           <span className="text-brand">Secure</span>.
         </h1>
         <p
@@ -31,22 +31,24 @@ export default function Home() {
       <TransferForm />
       <ul
         className="
-        mx-auto mt-7 flex list-none flex-wrap items-center justify-center gap-x-6 gap-y-3 p-0 text-[12px]
-        text-muted compact:gap-x-4 compact:gap-y-2.5 compact:text-[11px]
+        mx-auto mt-8 flex max-w-full list-none flex-wrap items-center justify-center gap-x-3 gap-y-2 p-0
+        text-[12px] text-muted compact:mt-6 compact:gap-x-2 compact:text-[11px]
       "
         aria-label="Simple, temporary sharing"
       >
-        <li className="flex items-center gap-1.5">
-          <Icon className="size-3.75" name="users" />
-          No Account
+        <li className="flex items-center gap-1.5 whitespace-nowrap">
+          <span>No Account</span>
+          <Icon className="size-4 text-brand" name="users" />
         </li>
-        <li className="flex items-center gap-1.5">
-          <Icon className="size-3.75" name="lock" />
-          Private Transfers
+        <li aria-hidden="true" className="h-4 w-px bg-border " />
+        <li className="flex items-center gap-1.5 whitespace-nowrap">
+          <span>Private Transfers</span>
+          <Icon className="size-4 text-brand" name="lock" />
         </li>
-        <li className="flex items-center gap-1.5">
-          <Icon className="size-3.75" name="clock" />
-          Auto-Deleted
+        <li aria-hidden="true" className="h-4 w-px bg-border " />
+        <li className="flex items-center gap-1.5 whitespace-nowrap">
+          <span>Auto-Deleted</span>
+          <Icon className="size-4 text-brand" name="clock" />
         </li>
       </ul>
     </main>

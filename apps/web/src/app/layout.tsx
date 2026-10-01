@@ -1,6 +1,8 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 import { DM_Sans, Sora } from "next/font/google";
-import { Brand } from "@/components/brand";
+import { RadialBackground } from "@/components/background-waves";
+import { SiteNavbar } from "@/components/site-navbar";
 import "./globals.css";
 
 const sora = Sora({
@@ -18,7 +20,6 @@ const dmSans = DM_Sans({
 export const metadata: Metadata = {
   title: { default: "Sendora — Send files. Simple and secure.", template: "%s · Sendora" },
   description: "Share files with a private, temporary link. Set an expiry and download limit. No account required.",
-  icons: { icon: "/icon.svg" },
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
@@ -28,16 +29,28 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
       className={`${sora.variable} ${dmSans.variable}`}
     >
       <body>
-        <a className="fixed top-3 left-3 z-10 translate-y-[-160%] rounded-lg bg-surface px-5 py-3 focus:translate-y-0" href="#main-content">Skip to content</a>
-        <header className="
-          mx-auto flex min-h-20 w-[calc(100%-64px)] max-w-5xl items-center justify-between gap-6
-          compact:min-h-20 compact:w-[calc(100%-40px)]
-        ">
-          <Brand />
-          <span className="text-[13px] text-muted compact:hidden">A little less permanent.</span>
-        </header>
+        <RadialBackground />
+        <SiteNavbar />
         {children}
-        <footer className="mt-auto px-5 pt-10 pb-6 text-center text-[12px] text-muted compact:pb-6 compact:text-[11px]">Send it. Share it. Gone when it’s done.</footer>
+        <footer className="mt-auto px-5 py-6 text-[12px] text-muted compact:py-5 compact:text-[11px]">
+          <div className="mx-auto flex w-full max-w-5xl flex-wrap items-center justify-between gap-x-6 gap-y-3 compact:flex-col compact:justify-center compact:text-center">
+            <p>Send it. Share it. Gone when it’s done.</p>
+            <nav aria-label="Legal" className="flex items-center gap-5">
+              <Link
+                href="/terms"
+                className="transition-colors hover:text-foreground"
+              >
+                Terms
+              </Link>
+              <Link
+                href="/privacy"
+                className="transition-colors hover:text-foreground"
+              >
+                Privacy
+              </Link>
+            </nav>
+          </div>
+        </footer>
       </body>
     </html>
   );

@@ -16,6 +16,7 @@ export function Brand() {
         alt=""
         width={35}
         height={35}
+        unoptimized
         className="size-9 object-contain transition-transform duration-200 group-hover:-rotate-6 group-hover:scale-105 compact:size-10"
       />
 

@@ -118,6 +118,7 @@ export default function AboutPage() {
             width={36}
             height={36}
             priority
+            unoptimized
             className="feedback-enter absolute left-1/2 top-[44.3%] size-9 -translate-x-1/2 object-contain"
           />
         </figure>

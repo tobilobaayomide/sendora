@@ -17,7 +17,7 @@ const unavailableCopy = {
   download_limit_reached: {
     title: "Download Limit Reached",
     description: "This transfer has reached the maximum number of allowed downloads.",
-    icon: "arrow-down",
+    icon: "cloud-download",
   },
   missing: {
     title: "Transfer not Found",
@@ -52,23 +52,30 @@ export function TransferUnavailable({
   onRetry: () => void;
   revokedHeadingRef: RefObject<HTMLHeadingElement | null>;
 }) {
+  const iconTone =
+    reason === "pending" || reason === "connection"
+      ? "text-brand-hover"
+      : reason === "missing"
+        ? "text-muted-strong"
+        : "text-danger";
+
   return (
-    <div className="flex flex-col items-center gap-4 px-7 py-9 text-center phone:px-5 phone:py-7">
-      <span className="mb-1 grid size-12 place-items-center rounded-2xl border border-border bg-surface-subtle text-brand">
-        <Icon className="size-6" name={unavailableCopy[reason].icon} />
+    <div className="feedback-enter flex flex-col items-center gap-3.5 px-8 py-10 text-center phone:px-5 phone:py-8">
+      <span className={`mb-1 grid size-14 place-items-center ${iconTone}`}>
+        <Icon className="size-12" name={unavailableCopy[reason].icon} />
       </span>
       <div role="alert">
         <h1
           className="
-            font-heading text-[clamp(1.375rem,4vw,1.625rem)] font-semibold leading-[1.35]
-            tracking-[-0.045em] text-balance
+            font-heading text-[21px] font-semibold leading-[1.3]
+            tracking-[-0.55px] text-balance
           "
           ref={reason === "revoked" ? revokedHeadingRef : undefined}
           tabIndex={reason === "revoked" ? -1 : undefined}
         >
           {unavailableCopy[reason].title}
         </h1>
-        <p className="mt-3 max-w-90 text-[14px] leading-[1.7] text-muted">
+        <p className="mx-auto mt-2.5 max-w-90 text-[14px] leading-[1.65] text-muted">
           {hasOwnerToken && reason === "pending"
             ? "Your upload hasn’t finished yet. Once it’s complete, your link will be ready to share."
             : unavailableCopy[reason].description}
@@ -76,22 +83,19 @@ export function TransferUnavailable({
       </div>
       {reason === "pending" || reason === "connection" ? (
         <button type="button" className="
-          inline-flex items-center justify-center gap-2.5 rounded-lg border font-semibold
-          leading-[1.4] text-center no-underline transition-colors duration-150 ease-[ease]
-          motion-reduce:transition-none disabled:border-border disabled:bg-surface-subtle
-          disabled:text-muted min-h-12 px-5 py-2.75 border-border-strong bg-surface
-          text-foreground enabled:hover:bg-surface-subtle mt-2
+          mt-2 inline-flex min-h-12 items-center justify-center gap-2.5 rounded-xl border border-border
+          bg-surface px-5 py-2.75 font-semibold leading-[1.4] text-foreground
+          transition-colors duration-150 hover:bg-surface-subtle motion-reduce:transition-none
         " onClick={onRetry}>
           <Icon name="refresh" />
           {reason === "pending" ? "Check Again" : "Try Again"}
         </button>
       ) : (
         <Link href="/" className="
-          inline-flex items-center justify-center gap-2.5 rounded-lg border font-semibold
-          leading-[1.4] text-center no-underline transition-colors duration-150 ease-[ease]
-          motion-reduce:transition-none disabled:border-border disabled:bg-surface-subtle
-          disabled:text-muted min-h-12 px-5 py-2.75 border-border-strong bg-surface
-          text-foreground hover:bg-surface-subtle mt-2
+          mt-2 inline-flex min-h-12 items-center justify-center gap-2.5 rounded-xl border border-transparent
+          bg-brand px-5 py-2.75 font-semibold leading-[1.4] text-white shadow-sm
+          transition-[background-color,box-shadow,transform] duration-150 hover:bg-brand-hover
+          hover:shadow-md active:translate-y-px dark:text-on-brand motion-reduce:transition-none
         ">
           Send a File <Icon name="arrow-right" />
         </Link>
